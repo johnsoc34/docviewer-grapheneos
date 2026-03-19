@@ -1,0 +1,16 @@
+# Apache POI
+-keep class org.apache.poi.** { *; }
+-keep class org.apache.xmlbeans.** { *; }
+-keep class org.openxmlformats.** { *; }
+-keep class com.microsoft.schemas.** { *; }
+-keep class org.apache.commons.** { *; }
+-dontwarn org.apache.poi.**
+-dontwarn org.apache.xmlbeans.**
+-dontwarn org.apache.commons.**
+-dontwarn javax.xml.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.apache.batik.**
+-dontwarn org.apache.pdfbox.**
+-dontwarn org.apache.logging.**
+-dontwarn de.rototor.pdfbox.**
+-dontwarn com.zaxxer.sparsebits.**

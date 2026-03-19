@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DocViewer" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#1a1a2e</item>
+        <item name="colorOnPrimary">#ffffff</item>
+        <item name="colorPrimaryContainer">#e8eaf6</item>
+        <item name="colorSecondary">#16213e</item>
+        <item name="colorSurface">#fafafa</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="ToolbarTitle">
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
+</resources>

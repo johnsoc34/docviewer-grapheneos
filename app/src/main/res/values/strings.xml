@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DocViewer</string>
+    <string name="welcome_title">Document Viewer</string>
+    <string name="welcome_subtitle">Open Word, Excel, and PowerPoint files\nlocally with zero network access</string>
+    <string name="open_file">Open File</string>
+    <string name="open_another">Open Another File</string>
+    <string name="supported_formats">Supports: .docx .xlsx .pptx .doc .xls .ppt .odt .ods .odp</string>
+    <string name="loading">Opening document…</string>
+    <string name="error_generic">Could not open this document</string>
+    <string name="error_unsupported">Unsupported file format</string>
+</resources>

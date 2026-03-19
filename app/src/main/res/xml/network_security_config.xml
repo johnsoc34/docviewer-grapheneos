@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Explicitly block all network traffic -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Empty: no CAs trusted = no TLS connections possible either -->
+        </trust-anchors>
+    </base-config>
+</network-security-config>
