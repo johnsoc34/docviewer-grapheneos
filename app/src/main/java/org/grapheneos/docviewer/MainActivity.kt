@@ -3,11 +3,16 @@ package org.grapheneos.docviewer
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.inputmethod.InputMethodManager
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.widget.EditText
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -15,8 +20,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.*
-import java.io.InputStream
 import java.io.File
+import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,7 +32,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: View
     private lateinit var errorText: TextView
 
+    private lateinit var searchBar: View
+    private lateinit var searchInput: EditText
+    private lateinit var searchCount: TextView
+    private lateinit var searchUp: ImageButton
+    private lateinit var searchDown: ImageButton
+    private lateinit var searchClose: ImageButton
+
     private var documentOpen = false
+    private var searchVisible = false
+    private var currentTitle = ""
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
@@ -47,6 +61,13 @@ class MainActivity : AppCompatActivity() {
         loadingIndicator = findViewById(R.id.loadingIndicator)
         errorView = findViewById(R.id.errorView)
         errorText = findViewById(R.id.errorText)
+
+        searchBar = findViewById(R.id.searchBar)
+        searchInput = findViewById(R.id.searchInput)
+        searchCount = findViewById(R.id.searchCount)
+        searchUp = findViewById(R.id.searchUp)
+        searchDown = findViewById(R.id.searchDown)
+        searchClose = findViewById(R.id.searchClose)
 
         setSupportActionBar(toolbar)
 
@@ -68,10 +89,13 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.openFileButton).setOnClickListener { pickFile() }
         findViewById<View>(R.id.retryButton).setOnClickListener { pickFile() }
 
-        // Back button closes document instead of exiting app
+        setupSearch()
+
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (documentOpen) {
+                if (searchVisible) {
+                    hideSearch()
+                } else if (documentOpen) {
                     closeDocument()
                 } else {
                     isEnabled = false
@@ -83,6 +107,70 @@ class MainActivity : AppCompatActivity() {
         if (intent?.action == Intent.ACTION_VIEW) {
             intent.data?.let { openDocument(it) }
         }
+    }
+
+    private fun setupSearch() {
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val query = s?.toString() ?: ""
+                if (query.isNotEmpty()) {
+                    documentWebView.findAllAsync(query)
+                } else {
+                    documentWebView.clearMatches()
+                    searchCount.text = ""
+                }
+            }
+        })
+
+        documentWebView.setFindListener { activeMatchOrdinal, numberOfMatches, isDoneCounting ->
+            if (isDoneCounting) {
+                if (numberOfMatches > 0) {
+                    val current = activeMatchOrdinal + 1
+                    searchCount.text = current.toString() + "/" + numberOfMatches.toString()
+                } else {
+                    val query = searchInput.text?.toString() ?: ""
+                    if (query.isNotEmpty()) {
+                        searchCount.text = "0/0"
+                    } else {
+                        searchCount.text = ""
+                    }
+                }
+            }
+        }
+
+        searchUp.setOnClickListener { documentWebView.findNext(false) }
+        searchDown.setOnClickListener { documentWebView.findNext(true) }
+        searchClose.setOnClickListener { hideSearch() }
+
+        searchInput.setOnEditorActionListener { _, _, _ ->
+            documentWebView.findNext(true)
+            true
+        }
+    }
+
+    private fun showSearch() {
+        if (!documentOpen) return
+        searchVisible = true
+        toolbar.title = ""
+        searchBar.visibility = View.VISIBLE
+        searchInput.requestFocus()
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
+        invalidateOptionsMenu()
+    }
+
+    private fun hideSearch() {
+        searchVisible = false
+        searchBar.visibility = View.GONE
+        searchInput.text?.clear()
+        documentWebView.clearMatches()
+        searchCount.text = ""
+        toolbar.title = currentTitle
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(searchInput.windowToken, 0)
+        invalidateOptionsMenu()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -99,6 +187,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         menu.findItem(R.id.action_close)?.isVisible = documentOpen
+        menu.findItem(R.id.action_search)?.isVisible = documentOpen && !searchVisible
         return super.onPrepareOptionsMenu(menu)
     }
 
@@ -106,18 +195,21 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_open -> { pickFile(); true }
             R.id.action_close -> { closeDocument(); true }
+            R.id.action_search -> { showSearch(); true }
             else -> super.onOptionsItemSelected(item)
         }
     }
 
     private fun closeDocument() {
         documentOpen = false
+        hideSearch()
         documentWebView.loadUrl("about:blank")
         documentWebView.visibility = View.GONE
         errorView.visibility = View.GONE
         loadingIndicator.visibility = View.GONE
         welcomeView.visibility = View.VISIBLE
-        toolbar.title = getString(R.string.app_name)
+        currentTitle = getString(R.string.app_name)
+        toolbar.title = currentTitle
         invalidateOptionsMenu()
     }
 
@@ -132,7 +224,7 @@ class MainActivity : AppCompatActivity() {
             "application/vnd.oasis.opendocument.text",
             "application/vnd.oasis.opendocument.spreadsheet",
             "application/vnd.oasis.opendocument.presentation",
-	    "application/pdf",
+            "application/pdf",
             "text/plain",
             "text/csv",
             "text/tab-separated-values",
@@ -142,6 +234,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openDocument(uri: Uri) {
         showLoading()
+        hideSearch()
 
         try {
             contentResolver.takePersistableUriPermission(
@@ -154,7 +247,8 @@ class MainActivity : AppCompatActivity() {
                 val mimeType = contentResolver.getType(uri) ?: ""
                 val fileName = getFileName(uri)
 
-                toolbar.title = fileName.ifEmpty { "Document" }
+                currentTitle = fileName.ifEmpty { "Document" }
+                toolbar.title = currentTitle
 
                 val html = withContext(Dispatchers.IO) {
                     val inputStream = contentResolver.openInputStream(uri)
@@ -193,10 +287,8 @@ class MainActivity : AppCompatActivity() {
                 PptConverter.convert(inputStream)
             mimeType.contains("opendocument") || ext in listOf("odt", "ods", "odp") ->
                 OdfConverter.convert(inputStream, ext)
-	    // PDF
             mimeType.contains("pdf") || ext == "pdf" ->
                 PdfConverter.convert(inputStream, cacheDir)
-            // Text / CSV / TSV
             mimeType.startsWith("text/") || ext in listOf("txt", "csv", "tsv", "log", "md", "json", "xml", "yaml", "yml") ->
                 TextConverter.convert(inputStream, fileName)
             else -> throw Exception(getString(R.string.error_unsupported))

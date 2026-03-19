@@ -9,4 +9,8 @@
         android:id="@+id/action_close"
         android:title="Close Document"
         app:showAsAction="never" />
+    <item
+        android:id="@+id/action_search"
+        android:title="Search Page"
+        app:showAsAction="never" />
 </menu>
