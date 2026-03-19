@@ -11,9 +11,20 @@ object XlsxConverter {
     private val decimalFormat = DecimalFormat("#.##########")
 
     fun convert(inputStream: InputStream): String {
-        val workbook = XSSFWorkbook(inputStream)
+        val bytes = inputStream.readBytes()
+        val workbook = XSSFWorkbook(java.io.ByteArrayInputStream(bytes))
         val body = StringBuilder()
-        val formulaEvaluator = workbook.creationHelper.createFormulaEvaluator()
+
+        // Try to create evaluator, but don't fail if we can't
+        val formulaEvaluator = try {
+            val eval = workbook.creationHelper.createFormulaEvaluator()
+            eval
+        } catch (_: Exception) { null }
+
+        // Clear cached values to avoid type mismatch errors
+        try {
+            formulaEvaluator?.clearAllCachedResultValues()
+        } catch (_: Exception) {}
 
         for (sheetIdx in 0 until workbook.numberOfSheets) {
             val sheet = workbook.getSheetAt(sheetIdx)
@@ -38,8 +49,7 @@ object XlsxConverter {
 
         return HtmlWrapper.wrap("Spreadsheet", body.toString(), extraCss)
     }
-
-    private fun convertSheet(sheet: Sheet, evaluator: FormulaEvaluator): String {
+    private fun convertSheet(sheet: Sheet, evaluator: FormulaEvaluator?): String {
         val sb = StringBuilder()
         val mergedRegions = sheet.mergedRegions
 
@@ -67,8 +77,8 @@ object XlsxConverter {
 
                 val cell = row?.getCell(colIdx)
                 val cellValue = getCellValue(cell, evaluator)
-                val isNumeric = cell?.cellType == CellType.NUMERIC
-                val isDate = cell != null && DateUtil.isCellDateFormatted(cell)
+                val isNumeric = try { cell?.cellType == CellType.NUMERIC } catch (_: Exception) { false }
+		val isDate = try { cell != null && DateUtil.isCellDateFormatted(cell) } catch (_: Exception) { false }
 
                 val cssClass = when {
                     isDate -> " class=\"date\""
@@ -92,29 +102,33 @@ object XlsxConverter {
         return sb.toString()
     }
 
-    private fun getCellValue(cell: Cell?, evaluator: FormulaEvaluator): String {
+    private fun getCellValue(cell: Cell?, evaluator: FormulaEvaluator?): String {
         if (cell == null) return ""
 
         return try {
             when (cell.cellType) {
                 CellType.STRING -> cell.stringCellValue ?: ""
                 CellType.NUMERIC -> {
-                    if (DateUtil.isCellDateFormatted(cell)) {
-                        val date = cell.localDateTimeCellValue
-                        date?.toString() ?: cell.numericCellValue.toString()
-                    } else {
-                        val value = cell.numericCellValue
-                        if (value == value.toLong().toDouble()) {
-                            value.toLong().toString()
+		    try {
+                        if (DateUtil.isCellDateFormatted(cell)) {
+                            val date = cell.localDateTimeCellValue
+                            date?.toString() ?: cell.numericCellValue.toString()
                         } else {
-                            decimalFormat.format(value)
+                            val value = cell.numericCellValue
+                            if (value == value.toLong().toDouble()) {
+                                value.toLong().toString()
+                            } else {
+                                decimalFormat.format(value)
+                            }
                         }
-                    }
-                }
+                    } catch (_: Exception) {
+			try { cell.stringCellValue } catch (_: Exception) { cell.toString() }
+		    }
+	     	}
                 CellType.BOOLEAN -> cell.booleanCellValue.toString()
                 CellType.FORMULA -> {
                     try {
-                        val evaluated = evaluator.evaluate(cell)
+                        val evaluated = evaluator?.evaluate(cell) ?: return cell.cellFormula ?: ""
                         when (evaluated.cellType) {
                             CellType.STRING -> evaluated.stringValue ?: ""
                             CellType.NUMERIC -> {
@@ -144,7 +158,7 @@ object XlsxConverter {
         var totalCells = 0
         for (cell in firstRow) {
             totalCells++
-            if (cell.cellType == CellType.STRING && cell.stringCellValue.isNotBlank()) {
+            if (try { cell.cellType == CellType.STRING && cell.stringCellValue.isNotBlank() } catch (_: Exception) { false }) {
                 textCount++
             }
         }

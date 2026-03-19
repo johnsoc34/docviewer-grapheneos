@@ -1,7 +1,5 @@
 package org.apache.logging.log4j;
-/**
- * No-op shim for log4j LogBuilder (fluent API).
- */
+import org.apache.logging.log4j.util.Supplier;
 public interface LogBuilder {
     static final LogBuilder INSTANCE = new LogBuilder() {};
     default LogBuilder withLocation() { return this; }
@@ -17,4 +15,7 @@ public interface LogBuilder {
     default void log(String message, Object... params) {}
     default void log(String message, Throwable t) {}
     default void log(Object message, Throwable t) {}
+    default void log(Supplier<?> msgSupplier) {}
+    default void log(String message, Supplier<?>... paramSuppliers) {}
+    default void log(Supplier<?> msgSupplier, Throwable t) {}
 }
