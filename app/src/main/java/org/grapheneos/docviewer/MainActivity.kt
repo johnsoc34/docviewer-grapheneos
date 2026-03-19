@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.appbar.MaterialToolbar
 import kotlinx.coroutines.*
 import java.io.InputStream
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
@@ -131,6 +132,10 @@ class MainActivity : AppCompatActivity() {
             "application/vnd.oasis.opendocument.text",
             "application/vnd.oasis.opendocument.spreadsheet",
             "application/vnd.oasis.opendocument.presentation",
+	    "application/pdf",
+            "text/plain",
+            "text/csv",
+            "text/tab-separated-values",
             "*/*"
         ))
     }
@@ -155,7 +160,7 @@ class MainActivity : AppCompatActivity() {
                     val inputStream = contentResolver.openInputStream(uri)
                         ?: throw Exception("Cannot open file")
                     inputStream.use { stream ->
-                        convertToHtml(stream, mimeType, fileName)
+                        convertToHtml(stream, mimeType, fileName, cacheDir)
                     }
                 }
 
@@ -169,7 +174,8 @@ class MainActivity : AppCompatActivity() {
     private fun convertToHtml(
         inputStream: InputStream,
         mimeType: String,
-        fileName: String
+        fileName: String,
+        cacheDir: File
     ): String {
         val ext = fileName.substringAfterLast('.', "").lowercase()
         return when {
@@ -187,6 +193,12 @@ class MainActivity : AppCompatActivity() {
                 PptConverter.convert(inputStream)
             mimeType.contains("opendocument") || ext in listOf("odt", "ods", "odp") ->
                 OdfConverter.convert(inputStream, ext)
+	    // PDF
+            mimeType.contains("pdf") || ext == "pdf" ->
+                PdfConverter.convert(inputStream, cacheDir)
+            // Text / CSV / TSV
+            mimeType.startsWith("text/") || ext in listOf("txt", "csv", "tsv", "log", "md", "json", "xml", "yaml", "yml") ->
+                TextConverter.convert(inputStream, fileName)
             else -> throw Exception(getString(R.string.error_unsupported))
         }
     }
